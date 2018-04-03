@@ -30,27 +30,6 @@ namespace Berlekamp
             }
             return bytes;
         }
-        static void Shuffle<T>(T[] array)
-        {
-            int n = array.Length;
-            for (int i = 0; i < n; i++)
-            {
-                int r = i + random.Next(n - i);
-                T t = array[r];
-                array[r] = array[i];
-                array[i] = t;
-            }
-        }
-        static string GenerateKey (int len) 
-        {
-            string y = new string('1', len / 2);
-            string n = new string('0', len / 2);
-            string key = y + n;
-            char[] chararr = key.ToCharArray();
-            Shuffle(chararr);
-            Shuffle(chararr);
-            return new string(chararr);
-        }
         static byte[] Xor(byte[] input, byte[] key)
         {
             byte[] bytes = new byte[input.Length];
@@ -68,6 +47,18 @@ namespace Berlekamp
                 binary += input[i]==key[i]?"0":"1";
             }
             return binary;
+        }
+        static char Xor(char input, char key)
+        {
+            return input == key ? '0' : '1';
+        }
+        static char Xor(params char[] input)
+        {
+            for (int i=1; i<input.Length; i++)
+            {
+                input[i] = Xor(input[i], input[i - 1]);
+            }
+            return input[input.Length - 1];
         }
         static void Berlekamp(string keybinary)
         {
@@ -129,7 +120,32 @@ namespace Berlekamp
             }
             Console.WriteLine(String.Format("Уравнение : {0}",String.Join("+", list)));
         }
-        static void PAKF(string keybinary)
+        static void Temp(string keybinary)
+        {
+            double temp = Math.Truncate(Math.Sqrt(keybinary.Length)) + 1;
+            Console.WriteLine("|sqrt(N)|+1={0}", temp);
+        }
+        static int Move(string keybinary)
+        {
+            string bytes = keybinary;
+            //Console.WriteLine(bytes);
+            int CtMin = PAKF(bytes);
+            int RtMin = AAKF(bytes);
+            int len = keybinary.Length;
+            for (int i = 0; i < keybinary.Length; i++)
+            {
+                string last = bytes[len - 1].ToString();
+                bytes = bytes.Insert(0, last);
+                bytes = bytes.Remove(len);
+                if (CtMin > PAKF(bytes)) CtMin = PAKF(bytes);
+                if (RtMin > AAKF(bytes)) RtMin = AAKF(bytes);
+                //Console.WriteLine(bytes);
+            }
+            Console.WriteLine("|Ct|={0}", CtMin);
+            Console.WriteLine("|Rt|={0}", RtMin);
+            return 0;
+        }
+        static int PAKF(string keybinary)
         {
             string bytes = keybinary;
             int len = bytes.Length;
@@ -144,13 +160,16 @@ namespace Berlekamp
                 bytes = bytes.Insert(0, last);
                 bytes = bytes.Remove(len);
             }
+            //Console.WriteLine(String.Format("C: {0}", String.Join(",", C)));
             C.RemoveAt(0);
-            double Ct = C.Max();
-            double temp = Math.Sqrt(Convert.ToDouble(keybinary.Length))+1;
-            Console.WriteLine("|sqrt(N)|+1={0}", temp);
-            Console.WriteLine("|Ct|={0}", Ct);
+            int Ct = -1;
+            for (int i = 0; i < C.Count; i++)
+            {
+                if (Ct < Math.Abs(C[i])) Ct = Math.Abs(C[i]);
+            }
+            return Ct;
         }
-        static void AAKF(string keybinary)
+        static int AAKF(string keybinary)
         {
             string bytes = keybinary;
             string oldbytes = keybinary;
@@ -165,39 +184,107 @@ namespace Berlekamp
                 bytes = bytes.Remove(--len);
                 oldbytes = oldbytes.Remove(0,1);
             }
+            //Console.WriteLine(String.Format("R: {0}", String.Join(",", R)));
             R.RemoveAt(0);
-            double Rt = R.Max();
-            Console.WriteLine("|Rt|={0}", Rt);
-            Console.ReadLine();
+            int Rt = -1;
+            for (int i=0; i < R.Count; i++)
+            {
+                if (Rt < Math.Abs(R[i])) Rt = Math.Abs(R[i]);
+            }
+            return Rt;
+        }
+        static string GenerateKey (int len)
+        {
+            List<List<int>> Dictionary = new List<List<int>>()
+            {
+                new List<int>{ 8, 3, 1, 0 },            //2^3    //1 символ
+                new List<int>{ 16, 4, 1, 0},            //2^4    //2 символа
+                new List<int>{ 32, 5, 3, 0},            //2^5    //4 символа
+                new List<int>{ 64, 6, 1, 0},            //2^6    //8 символов
+                new List<int>{ 128, 7, 3, 0},           //2^7    //16 символов
+                new List<int>{ 256, 8, 4, 3, 2, 0},     //2^8    //32 символа
+                new List<int>{ 512, 9, 4, 0},           //2^9    //64 символа
+                new List<int>{ 1024, 10, 3, 0 },        //2^10   //128 символов
+                new List<int>{ 2048, 11, 2, 0},         //2^11
+                new List<int>{ 4096, 12, 6, 4, 1, 0},   //2^12
+                new List<int>{ 8192, 13, 4, 3, 1, 0},   //2^13
+                new List<int>{ 16384, 14, 10, 6, 1, 0}, //2^14
+                new List<int>{ 32768, 15, 1, 0},        //2^15
+                new List<int>{ 65536, 16, 12, 3, 1, 0}, //2^16
+                new List<int>{ 131072, 17, 3, 0},       //2^17
+                new List<int>{ 262144, 18, 7, 0},       //2^18
+                new List<int>{ 524288, 19, 5, 2, 1, 0}, //2^19
+                new List<int>{ 1048576, 20, 3, 0},      //2^20
+                new List<int>{ 2097152, 21, 2, 0},      //2^21
+                new List<int>{ 4194304, 22, 1, 0},      //2^22
+                new List<int>{ 8388608, 23, 5, 0},      //2^23
+                new List<int>{ 16777216, 24, 7, 2, 1, 0}//2^24
+            };
+            int rem = len;
+            string output = "";
+            while (rem != 0)
+            {
+                for (int i = Dictionary.Count() - 1; i >= 0; i--)
+                {
+                    if (rem >= Dictionary[i][0])
+                    {
+                        rem -= Dictionary[i][0];
+                        List<int> temp = new List<int>(Dictionary[i]);
+                        temp.RemoveAt(0);
+                        output += GenerateSequence(temp);
+                        break;
+                    }
+                }
+            }
+            return output;
+
+        }
+        static string GenerateSequence (List<int> polynomial)
+        {
+            string bytes = "";
+            bytes = bytes.PadLeft(polynomial[0] - 1, '0');
+            bytes += '1';
+            for (int i = polynomial[0]; i < Math.Pow(2, polynomial[0]); i++)
+            {
+                char ch = new char();
+                for (int j=2; j<polynomial.Count(); j++)
+                {
+                    ch = Xor(bytes[i-polynomial[0]+polynomial[j]],bytes[i-polynomial[0]+polynomial[j-1]]);
+                }
+                bytes += ch;
+            }
+            return bytes;
         }
 
         static void Main(string[] args)
         {
-            Console.WriteLine("Введите исходный текст: He");
-            string inputstring = /*Console.ReadLine()*/ "He";
-            byte[] inputbytes = cp866.GetBytes(inputstring);
-            string inputbinary = BytesToBinary(inputbytes);
-            Console.WriteLine("Текст в двоичном виде : {0}", inputbinary);
-            string keybinary = GenerateKey(inputbinary.Length);
-            byte[] keybytes = BinaryToBytes(keybinary);
-            Console.WriteLine("Ключ                  : {0}", keybinary);
-            byte[] encodedbytes = Xor(inputbytes, keybytes);
-            Console.WriteLine("Зашифрованная строка  : {0}", BytesToBinary(encodedbytes));
-            byte[] decodedbytes = Xor(encodedbytes, keybytes);
-            Console.WriteLine("Зашифрованный текст   : {0}", cp866.GetString(encodedbytes));
-
-            Console.WriteLine("Расшифрованная строка : {0}", BytesToBinary(decodedbytes));
-            string decodedstring = cp866.GetString(decodedbytes);
-            Console.WriteLine("Итоговый текст        : {0}", decodedstring);
-            string str2 = cp866.GetString(inputbytes);
-            Console.WriteLine(new string('—',20));
-            Console.WriteLine("Проверка ключа");
-            Berlekamp(keybinary);
-            PAKF(keybinary);
-            AAKF(keybinary);//0001101
-            Console.ReadLine();
-
-
+            while (true)
+            {
+                Console.Write("Введите исходный текст: ");
+                string inputstring = Console.ReadLine();
+                byte[] inputbytes = cp866.GetBytes(inputstring);
+                string inputbinary = BytesToBinary(inputbytes);
+                Console.WriteLine("Текст в двоичном виде : {0}", inputbinary);
+                string keybinary = GenerateKey(inputbinary.Length);
+                byte[] keybytes = BinaryToBytes(keybinary);
+                Console.WriteLine("Ключ                  : {0}", keybinary);
+                byte[] encodedbytes = Xor(inputbytes, keybytes);
+                Console.WriteLine("Зашифрованная строка  : {0}", BytesToBinary(encodedbytes));
+                byte[] decodedbytes = Xor(encodedbytes, keybytes);
+                Console.WriteLine("Зашифрованный текст   : {0}", cp866.GetString(encodedbytes));
+                Console.WriteLine("Расшифрованная строка : {0}", BytesToBinary(decodedbytes));
+                string decodedstring = cp866.GetString(decodedbytes);
+                Console.WriteLine("Итоговый текст        : {0}", decodedstring);
+                string str2 = cp866.GetString(inputbytes);
+                Console.WriteLine(new string('—', 20));
+                Console.WriteLine("Проверка ключа");
+                Berlekamp(keybinary);
+                Temp(keybinary);
+                PAKF(keybinary);
+                AAKF(keybinary);
+                Move(keybinary);
+                Console.WriteLine();
+            }
         }
     }
 }
